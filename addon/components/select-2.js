@@ -14,7 +14,7 @@ var get = Ember.get;
  *    - Mixed: when using select-2 with "optionValuePath=..."
  *    - Array of Mixed: when using select-2 with "multiple=true" and
  *      "optionValuePath=..."
- *      
+ *
  *  - Content: Array of Objects used to present to the user for choosing the
  *    selected values. "content" cannot be an Array of Strings, the Objects are
  *    expected to have an "id" and a "text" property, which can be computed
@@ -30,6 +30,7 @@ var Select2Component = Ember.Component.extend({
   // Bindings that may be overwritten in the template
   inputSize: "input-md",
   optionValuePath: null,
+  optionLabelPath: "text",
   placeholder: null,
   multiple: false,
   allowClear: false,
@@ -63,13 +64,13 @@ var Select2Component = Ember.Component.extend({
       }
 
       var id = get(item, "id"),
-          text = get(item, "text"),
+          text = get(item, self.get("optionLabelPath")),
           description = get(item, "description"),
           output = Ember.Handlebars.Utils.escapeExpression(text);
 
       // only for "real items" (no group headers) that have a description
       if (id && description) {
-        output += " <span class=\"text-muted\">" + 
+        output += " <span class=\"text-muted\">" +
           Ember.Handlebars.Utils.escapeExpression(description) + "</span>";
       }
 
@@ -86,7 +87,7 @@ var Select2Component = Ember.Component.extend({
         return;
       }
 
-      var text = get(item, "text");
+      var text = get(item, self.get("optionLabelPath"));
 
       // escape text unless it's passed as a Handlebars.SafeString
       return Ember.Handlebars.Utils.escapeExpression(text);
@@ -106,7 +107,7 @@ var Select2Component = Ember.Component.extend({
 
         if (item.children) {
           filteredChildren = item.children.reduce(function(children, child) {
-            if (select2.matcher(query.term, get(child, "text"))) {
+            if (select2.matcher(query.term, get(child, self.get("optionLabelPath")))) {
               children.push(child);
             }
             return children;
@@ -114,7 +115,7 @@ var Select2Component = Ember.Component.extend({
         }
 
         // apply the regular matcher
-        if (select2.matcher(query.term, get(item, "text"))) {
+        if (select2.matcher(query.term, get(item, self.get("optionLabelPath")))) {
           // keep this item either if itself matches
           results.push(item);
         } else if (filteredChildren.length) {
@@ -165,15 +166,26 @@ var Select2Component = Ember.Component.extend({
       var values = value.split(","),
           filteredContent = [];
 
+      var usingEmberData = !(content instanceof Array);
+
       // for every object, check if its optionValuePath is in the selected
       // values array and save it to the right position in filteredContent
-      var contentLength = content.length,
-          unmatchedValues = values.length,
+      var contentLength;
+      if(usingEmberData){
+        contentLength = content.get('length');
+      }else{
+        contentLength = content.length;
+      }
+      var unmatchedValues = values.length,
           matchIndex;
 
       // START loop over content
       for (var i = 0; i < contentLength; i++) {
-        var item = content[i];
+        if(usingEmberData){
+          var item = content.objectAt(i);
+        }else{
+          var item = content[i];
+        }
         matchIndex = -1;
 
         if (item.children && item.children.length) {
@@ -190,7 +202,7 @@ var Select2Component = Ember.Component.extend({
               break;
             }
           }
-        } else {
+        } else {
           // ...or flat data structure: try to match simple item
           matchIndex = values.indexOf("" + get(item, optionValuePath));
           if (matchIndex !== -1) {
@@ -256,7 +268,7 @@ var Select2Component = Ember.Component.extend({
    * Respond to selection changes originating from the select2 element. If
    * select2 is working with full objects just use them to set the value,
    * use the optionValuePath otherwise.
-   * 
+   *
    * @param  {String|Object} data   Currently selected value
    */
   selectionChanged: function(data) {
@@ -312,7 +324,7 @@ var Select2Component = Ember.Component.extend({
    */
   contentChanged: Ember.observer(function() {
     this.valueChanged();
-  }, "content.@each", "content.@each.text")
+  }, "content.@each", "content.@each." + get("optionLabelPath"))
 });
 
 export default Select2Component;
